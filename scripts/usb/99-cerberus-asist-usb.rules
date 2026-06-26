@@ -1,0 +1,1 @@
+ACTION=="add", SUBSYSTEM=="block", ENV{DEVTYPE}=="partition", RUN+="/usr/bin/env bash /opt/cerberus_asist/usb-trigger.sh %E{DEVNAME} add"

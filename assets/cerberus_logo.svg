@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="95" fill="#1a1a1a" stroke="#ff4500" stroke-width="4"/>
+  
+  <!-- Inner decorative ring -->
+  <circle cx="100" cy="100" r="85" fill="none" stroke="#ff6600" stroke-width="2" stroke-dasharray="10,5"/>
+  
+  <!-- Three heads - center head -->
+  <g id="head-center">
+    <!-- Head shape -->
+    <ellipse cx="100" cy="85" rx="20" ry="22" fill="#2d2d2d" stroke="#ff4500" stroke-width="2"/>
+    <!-- Snout -->
+    <ellipse cx="100" cy="95" rx="10" ry="8" fill="#333333" stroke="#ff6600" stroke-width="1.5"/>
+    <!-- Nose -->
+    <circle cx="100" cy="96" r="3" fill="#ff0000"/>
+    <!-- Eye -->
+    <circle cx="100" cy="82" r="4" fill="#ff0000" stroke="#ff4500" stroke-width="1"/>
+    <circle cx="101" cy="81" r="1.5" fill="#ffff00"/>
+    <!-- Horns -->
+    <path d="M 85 75 Q 80 60 85 50" stroke="#8b4513" stroke-width="3" fill="none"/>
+    <path d="M 115 75 Q 120 60 115 50" stroke="#8b4513" stroke-width="3" fill="none"/>
+  </g>
+  
+  <!-- Left head -->
+  <g id="head-left" transform="rotate(-30 60 90)">
+    <ellipse cx="55" cy="90" rx="18" ry="20" fill="#2d2d2d" stroke="#ff4500" stroke-width="2"/>
+    <!-- Snout -->
+    <ellipse cx="48" cy="98" rx="9" ry="7" fill="#333333" stroke="#ff6600" stroke-width="1.5"/>
+    <!-- Nose -->
+    <circle cx="46" cy="99" r="3" fill="#ff0000"/>
+    <!-- Evil eye -->
+    <ellipse cx="55" cy="86" rx="4" ry="3" fill="#ff0000" stroke="#ff4500" stroke-width="1"/>
+    <circle cx="54" cy="85" r="1.5" fill="#ffff00"/>
+    <!-- Horn -->
+    <path d="M 42 76 Q 38 62 44 55" stroke="#8b4513" stroke-width="3" fill="none"/>
+  </g>
+  
+  <!-- Right head -->
+  <g id="head-right" transform="rotate(30 140 90)">
+    <ellipse cx="145" cy="90" rx="18" ry="20" fill="#2d2d2d" stroke="#ff4500" stroke-width="2"/>
+    <!-- Snout -->
+    <ellipse cx="152" cy="98" rx="9" ry="7" fill="#333333" stroke="#ff6600" stroke-width="1.5"/>
+    <!-- Nose -->
+    <circle cx="154" cy="99" r="3" fill="#ff0000"/>
+    <!-- Evil eye -->
+    <ellipse cx="145" cy="86" rx="4" ry="3" fill="#ff0000" stroke="#ff4500" stroke-width="1"/>
+    <circle cx="146" cy="85" r="1.5" fill="#ffff00"/>
+    <!-- Horn -->
+    <path d="M 158 76 Q 162 62 156 55" stroke="#8b4513" stroke-width="3" fill="none"/>
+  </g>
+  
+  <!-- Teeth/mouth details -->
+  <path d="M 92 102 L 94 108 L 96 102 L 98 108 L 100 102 L 102 108 L 104 102 L 106 108 L 108 102" 
+        stroke="#ffffff" stroke-width="1.5" fill="none"/>
+  
+  <!-- Body/neck connection -->
+  <path d="M 85 105 Q 100 120 115 105" stroke="#2d2d2d" stroke-width="8" fill="none" stroke-linecap="round"/>
+  
+  <!-- Flame accents -->
+  <path d="M 70 60 Q 72 50 68 45 Q 74 50 76 60" fill="#ff6600" opacity="0.7"/>
+  <path d="M 130 60 Q 132 50 128 45 Q 134 50 136 60" fill="#ff6600" opacity="0.7"/>
+  <path d="M 95 45 Q 97 38 93 33 Q 99 38 101 45" fill="#ff0000" opacity="0.8"/>
+  <path d="M 100 48 Q 103 40 99 35 Q 105 40 107 48" fill="#ff4500" opacity="0.6"/>
+  
+  <!-- Text -->
+  <text x="100" y="155" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" 
+        font-weight="bold" fill="#ff4500" stroke="#000000" stroke-width="0.5">
+    CERBERUS
+  </text>
+  <text x="100" y="170" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" 
+        fill="#ff6600" stroke="#000000" stroke-width="0.3">
+    ASIST
+  </text>
+</svg>

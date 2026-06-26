@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cerberus Asist — Dasbor Instalasi & Deploy USB</title>
+<style>
+  /* ─── CSS Variables ─── */
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --cyan: #39d2c0;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ─── Scrollbar ─── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ─── Header ─── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  header h1 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  header h1 span.icon { color: var(--cyan); font-size: 1.6rem; }
+  .header-badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+  .header-badge.online { border-color: var(--green); color: var(--green); }
+
+  /* ─── Layout ─── */
+  .container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+  .sidebar {
+    width: 260px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 16px 0;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .main {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+  }
+
+  /* ─── Sidebar Navigation ─── */
+  .nav-section { margin-bottom: 8px; }
+  .nav-section-title {
+    padding: 6px 20px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    font-weight: 600;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    cursor: pointer;
+    color: var(--text-dim);
+    border-left: 3px solid transparent;
+    transition: all 0.15s;
+    font-size: 0.88rem;
+  }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active {
+    background: var(--surface2);
+    color: var(--accent);
+    border-left-color: var(--accent);
+  }
+  .nav-item .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+  .nav-item .dot.done { background: var(--green); }
+  .nav-item .dot.running { background: var(--yellow); animation: pulse 1s infinite; }
+  .nav-item .dot.fail { background: var(--red); }
+  .nav-item .dot.idle { background: var(--border); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ─── Cards ─── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card h2 .badge {
+    font-size: 0.7rem;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--surface2);
+    color: var(--text-dim);
+  }
+
+  /* ─── Grid ─── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  }
+
+  /* ─── Status Indicators ─── */
+  .stat {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .stat:last-child { border-bottom: none; }
+  .stat-label { font-size: 0.88rem; color: var(--text-dim); }
+  .stat-value { font-weight: 600; }
+  .stat-value.green { color: var(--green); }
+  .stat-value.yellow { color: var(--yellow); }
+  .stat-value.red { color: var(--red); }
+  .stat-value.cyan { color: var(--cyan); }
+
+  /* ─── Buttons ─── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface2);
+    color: var(--text);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .btn:hover { background: var(--border); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .btn-primary:hover { filter: brightness(1.15); }
+  .btn-danger {
+    background: var(--red);
+    color: #fff;
+    border-color: var(--red);
+  }
+  .btn-danger:hover { filter: brightness(1.15); }
+  .btn-success {
+    background: var(--green);
+    color: #fff;
+    border-color: var(--green);
+  }
+  .btn-success:hover { filter: brightness(1.15); }
+  .btn-sm { padding: 4px 12px; font-size: 0.8rem; }
+  .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* ─── Progress Bar ─── */
+  .progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--surface2);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 8px 0;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+    width: 0%;
+  }
+  .progress-fill.green { background: var(--green); }
+  .progress-fill.yellow { background: var(--yellow); }
+  .progress-fill.red { background: var(--red); }
+
+  /* ─── Log / Output ─── */
+  .log-box {
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .log-box .info { color: var(--cyan); }
+  .log-box .ok { color: var(--green); }
+  .log-box .warn { color: var(--yellow); }
+  .log-box .error { color: var(--red); }
+  .log-box .dim { color: var(--text-dim); }
+
+  /* ─── Stage List ─── */
+  .stage-list { list-style: none; }
+  .stage-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.88rem;
+  }
+  .stage-item:last-child { border-bottom: none; }
+  .stage-number {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .stage-number.done { background: var(--green); color: #fff; }
+  .stage-number.running { background: var(--yellow); color: #000; animation: pulse 1s infinite; }
+  .stage-number.fail { background: var(--red); color: #fff; }
+  .stage-name { flex: 1; }
+  .stage-status { font-size: 0.8rem; }
+  .stage-status.done { color: var(--green); }
+  .stage-status.running { color: var(--yellow); }
+  .stage-status.fail { color: var(--red); }
+  .stage-status.pending { color: var(--text-dim); }
+
+  /* ─── Tabs ─── */
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .tab {
+    padding: 10px 20px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    color: var(--text-dim);
+    font-size: 0.88rem;
+    transition: all 0.15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ─── Form ─── */
+  .form-group { margin-bottom: 14px; }
+  .form-group label {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+    font-weight: 500;
+  }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.88rem;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .form-group textarea { font-family: 'Consolas', monospace; font-size: 0.8rem; min-height: 80px; resize: vertical; }
+  .form-hint { font-size: 0.75rem; color: var(--text-dim); margin-top: 2px; }
+
+  /* ─── USB Section ─── */
+  .usb-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--surface2);
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+  }
+  .usb-led {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+  .usb-led.active { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .usb-led.waiting { background: var(--yellow); animation: pulse 1s infinite; }
+
+  /* ─── Toast ─── */
+  .toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .toast {
+    padding: 12px 20px;
+    border-radius: var(--radius);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    font-size: 0.85rem;
+    animation: slideIn 0.3s ease;
+    max-width: 400px;
+  }
+  .toast.success { border-left: 4px solid var(--green); }
+  .toast.error { border-left: 4px solid var(--red); }
+  .toast.info { border-left: 4px solid var(--accent); }
+
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 768px) {
+    .container { flex-direction: column; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); padding: 8px 0; max-height: 200px; }
+    header { padding: 12px 16px; }
+    header h1 { font-size: 1.1rem; }
+    .main { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ─── Toast Container ─── -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ─── Header ─── -->
+<header>
+  <h1><span class="icon">⬡</span> Cerberus Asist</h1>
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <span class="header-badge" id="statusBadge">⏳ Memuat...</span>
+    <span class="header-badge" id="pairBadge">🔗 Tidak terhubung</span>
+  </div>
+</header>
+
+<!-- ─── Container ─── -->
+<div class="container">
+
+  <!-- ─── Sidebar ─── -->
+  <nav class="sidebar" id="sidebar">
+    <div class="nav-section">
+      <div class="nav-section-title">Dasbor</div>
+      <div class="nav-item active" data-tab="overview">
+        <span class="dot" id="dot-overview"></span>
+        Ringkasan
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-title">Instalasi</div>
+      <div class="nav-item" data-tab="stages">
+        <span class="dot" id="dot-stages"></span>
+        Tahapan Setup
+      </div>
+      <div class="nav-item" data-tab="build">
+        <span class="dot" id="dot-build"></span>
+        Build & Model
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-title">Layanan</div>
+      <div class="nav-item" data-tab="services">
+        <span class="dot" id="dot-services"></span>
+        Status Service
+      </div>
+      <div class="nav-item" data-tab="logs">
+        <span class="dot" id="dot-logs"></span>
+        Log Real-time
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-title">Deploy</div>
+      <div class="nav-item" data-tab="usb">
+        <span class="dot" id="dot-usb"></span>
+        USB Deploy
+      </div>
+      <div class="nav-item" data-tab="config">
+        <span class="dot" id="dot-config"></span>
+        Konfigurasi
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-title">Server</div>
+      <div class="nav-item" data-tab="monitoring">
+        <span class="dot" id="dot-monitoring"></span>
+        Monitoring
+      </div>
+      <div class="nav-item" data-tab="backup">
+        <span class="dot" id="dot-backup"></span>
+        Backup
+      </div>
+      <div class="nav-item" data-tab="sshkeys">
+        <span class="dot" id="dot-sshkeys"></span>
+        SSH Keys
+      </div>
+    </div>
+  </nav>
+
+  <!-- ─── Main Content ─── -->
+  <main class="main">
+
+    <!-- ═══ OVERVIEW ═══ -->
+    <section class="tab-content active" id="tab-overview">
+      <div class="grid-2">
+        <div class="card">
+          <h2>📊 Status Sistem</h2>
+          <div class="stat"><span class="stat-label">Services</span><span class="stat-value" id="ov-services">—</span></div>
+          <div class="stat"><span class="stat-label">Pairing</span><span class="stat-value" id="ov-pairing">—</span></div>
+          <div class="stat"><span class="stat-label">Heartbeat</span><span class="stat-value" id="ov-heartbeat">—</span></div>
+          <div class="stat"><span class="stat-label">Signed Tokens</span><span class="stat-value" id="ov-tokens">—</span></div>
+          <div class="stat"><span class="stat-label">Instalasi</span><span class="stat-value" id="ov-installed">—</span></div>
+        </div>
+        <div class="card">
+          <h2>🎯 Quick Actions</h2>
+          <div class="btn-group" style="margin-bottom:12px;">
+            <button class="btn btn-primary" onclick="installService('start')">▶ Start All</button>
+            <button class="btn" onclick="installService('stop')">⏹ Stop All</button>
+            <button class="btn" onclick="installService('restart')">🔄 Restart</button>
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-success" onclick="runSetup()">⚡ Setup Lengkap</button>
+            <button class="btn" onclick="checkHealth()">🔍 Cek Health</button>
+          </div>
+          <div style="margin-top:12px;">
+            <button class="btn btn-danger btn-sm" onclick="runReset()">⚠️ Reset Proyek</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>📋 Progress Instalasi</h2>
+        <div class="progress-bar">
+          <div class="progress-fill" id="overallProgress" style="width:0%"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:0.8rem;color:var(--text-dim);">
+          <span>0%</span>
+          <span id="progressText">0 / 10 tahap</span>
+          <span>100%</span>
+        </div>
+        <ul class="stage-list" id="overviewStageList" style="margin-top:12px;"></ul>
+      </div>
+    </section>
+
+    <!-- ═══ STAGES ═══ -->
+    <section class="tab-content" id="tab-stages">
+      <div class="card">
+        <h2>🧩 Tahapan Setup <span class="badge">Stage 0-10</span></h2>
+        <p style="color:var(--text-dim);font-size:0.85rem;margin-bottom:12px;">
+          Setiap tahap dapat dijalankan secara independen. Urutan yang benar: 0 → 1 → ... → 10.
+        </p>
+        <div class="tabs" id="stageTabs">
+          <div class="tab active" data-tab-content="stages-auto">⏩ Auto Run</div>
+          <div class="tab" data-tab-content="stages-manual">🎛 Manual</div>
+        </div>
+        <div class="tab-content active" id="tab-stages-auto">
+          <div class="btn-group" style="margin-bottom:12px;">
+            <button class="btn btn-primary" onclick="runSetup()">▶ Jalankan Semua</button>
+            <button class="btn" onclick="runSetupStage(0)">▶ Stage 0-2 (Awal)</button>
+            <button class="btn" onclick="runSetupStage(3)">▶ Stage 3-5 (Build)</button>
+            <button class="btn" onclick="runSetupStage(6)">▶ Stage 6-8 (Deploy)</button>
+            <button class="btn" onclick="runSetupStage(9)">▶ Stage 9-10 (Final)</button>
+          </div>
+          <div class="log-box" id="setupLog"><span class="dim">⏳ Menunggu perintah...</span></div>
+        </div>
+        <div class="tab-content" id="tab-stages-manual" style="display:none;">
+          <ul class="stage-list" id="manualStageList"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ BUILD & MODEL ═══ -->
+    <section class="tab-content" id="tab-build">
+      <div class="grid-2">
+        <div class="card">
+          <h2>🔧 Build llama.cpp</h2>
+          <div class="stat"><span class="stat-label">Status Build</span><span class="stat-value" id="build-status">—</span></div>
+          <div class="stat"><span class="stat-label">llama-server</span><span class="stat-value" id="build-llama">—</span></div>
+          <div style="margin-top:12px;">
+            <button class="btn" onclick="runBuildLlama()">🛠 Build llama.cpp</button>
+          </div>
+        </div>
+        <div class="card">
+          <h2>🤖 Model</h2>
+          <div class="stat"><span class="stat-label">Model Terpilih</span><span class="stat-value cyan" id="model-name">—</span></div>
+          <div class="stat"><span class="stat-label">Ukuran</span><span class="stat-value" id="model-size">—</span></div>
+          <div class="stat"><span class="stat-label">Status Download</span><span class="stat-value" id="model-downloaded">—</span></div>
+          <div style="margin-top:12px;">
+            <button class="btn" onclick="runDownloadModel()">⬇ Download Model</button>
+            <button class="btn" onclick="scanHardware()">🖥 Scan Hardware</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>📦 Spesifikasi Sistem</h2>
+        <div class="grid-3">
+          <div class="stat" style="flex-direction:column;align-items:flex-start;gap:4px;border:none;">
+            <span class="stat-label">RAM</span>
+            <span class="stat-value" id="spec-ram">—</span>
+          </div>
+          <div class="stat" style="flex-direction:column;align-items:flex-start;gap:4px;border:none;">
+            <span class="stat-label">Disk</span>
+            <span class="stat-value" id="spec-disk">—</span>
+          </div>
+          <div class="stat" style="flex-direction:column;align-items:flex-start;gap:4px;border:none;">
+            <span class="stat-label">CPU Cores</span>
+            <span class="stat-value" id="spec-cpu">—</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ SERVICES ═══ -->
+    <section class="tab-content" id="tab-services">
+      <div class="grid-2">
+        <div class="card">
+          <h2>🔄 Service Status</h2>
+          <div id="serviceList"></div>
+        </div>
+        <div class="card">
+          <h2>🎮 Kontrol Service</h2>
+          <div class="btn-group" style="margin-bottom:12px;">
+            <button class="btn btn-primary" onclick="installService('start')">▶ Start All</button>
+            <button class="btn" onclick="installService('stop')">⏹ Stop All</button>
+            <button class="btn" onclick="installService('restart')">🔄 Restart All</button>
+          </div>
+          <div style="margin-top:8px;">
+            <button class="btn btn-sm" onclick="refreshStatus()">🔄 Refresh</button>
+            <button class="btn btn-sm btn-success" onclick="enableServices()">✅ Enable All</button>
+            <button class="btn btn-sm btn-danger" onclick="disableServices()">⛔ Disable All</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ LOGS ═══ -->
+    <section class="tab-content" id="tab-logs">
+      <div class="card">
+        <h2>📜 Log Real-time</h2>
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+          <button class="btn btn-sm" onclick="fetchLog('orchestrator')">📋 Orchestrator</button>
+          <button class="btn btn-sm" onclick="fetchLog('llama')">🦙 llama.cpp</button>
+          <button class="btn btn-sm" onclick="fetchLog('bot')">🤖 Bot</button>
+          <button class="btn btn-sm" onclick="fetchLog('dashboard')">📊 Dashboard</button>
+          <button class="btn btn-sm" onclick="fetchLog('usb')">💾 USB</button>
+          <button class="btn btn-sm" onclick="clearLog()">🗑 Clear</button>
+        </div>
+        <div class="log-box" id="logDisplay"><span class="dim">⏳ Pilih sumber log...</span></div>
+      </div>
+    </section>
+
+    <!-- ═══ USB DEPLOY ═══ -->
+    <section class="tab-content" id="tab-usb">
+      <div class="grid-2">
+        <div class="card">
+          <h2>💾 USB Auto-Deploy</h2>
+          <div class="usb-status">
+            <div class="usb-led" id="usbLed"></div>
+            <span id="usbStatusText">Memeriksa perangkat USB...</span>
+          </div>
+          <div class="stat"><span class="stat-label">USB Rules</span><span class="stat-value" id="usb-rules">—</span></div>
+          <div class="stat"><span class="stat-label">Trigger Script</span><span class="stat-value" id="usb-trigger">—</span></div>
+          <div class="stat"><span class="stat-label">Marker File</span><span class="stat-value" id="usb-marker">—</span></div>
+          <div style="margin-top:12px;">
+            <button class="btn btn-primary" onclick="installUsbRules()">🔧 Install USB Rules</button>
+            <button class="btn" onclick="prepareUsbDeploy()">📦 Siapkan USB Deploy</button>
+          </div>
+        </div>
+        <div class="card">
+          <h2>⚙️ Konfigurasi USB</h2>
+          <div class="form-group">
+            <label for="usbAllowedVID">VID:PID yang Diizinkan</label>
+            <input type="text" id="usbAllowedVID" value="abcd:1234" placeholder="vid:pid">
+            <div class="form-hint">Pisahkan dengan spasi untuk multiple ID</div>
+          </div>
+          <div class="form-group">
+            <label for="usbMarker">Nama Marker File</label>
+            <input type="text" id="usbMarker" value=".cerberus_asist">
+          </div>
+          <div class="form-group">
+            <label for="usbTargetDir">Target Direktori</label>
+            <input type="text" id="usbTargetDir" value="/opt/cerberus_asist">
+          </div>
+          <button class="btn btn-success" onclick="saveUsbConfig()">💾 Simpan Konfigurasi</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>📋 Petunjuk Deploy USB</h2>
+        <div style="font-size:0.85rem;color:var(--text-dim);line-height:1.7;">
+          <p>1. Colokkan USB yang sudah ditandai dengan file <code>.cerberus_asist</code></p>
+          <p>2. Sistem akan otomatis mendeteksi dan menjalankan setup</p>
+          <p>3. Untuk membuat USB deploy: colok USB → klik "Siapkan USB Deploy"</p>
+          <p>4. Atau jalankan manual: <code>sudo bash scripts/usb/usb-trigger.sh /dev/sda1</code></p>
+          <p style="margin-top:8px;">
+            <strong>File yang diperlukan di root USB:</strong><br>
+            <code>.cerberus_asist</code> (marker) — file kosong sebagai penanda<br>
+            <code>cerberus_bundle.tar.gz</code> (opsional) — bundle instalasi lengkap
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ CONFIG ═══ -->
+    <section class="tab-content" id="tab-config">
+      <div class="grid-2">
+        <div class="card">
+          <h2>🔐 Environment</h2>
+          <div class="form-group">
+            <label for="cfgToken">TELEGRAM_TOKEN</label>
+            <input type="password" id="cfgToken" placeholder="xxxxxxxxx:xxxxxxxxxxxxxxxxxxxx">
+          </div>
+          <div class="form-group">
+            <label for="cfgPort">PORT (Dashboard)</label>
+            <input type="number" id="cfgPort" value="7860">
+          </div>
+          <div class="form-group">
+            <label for="cfgPortLLM">PORT_LLM</label>
+            <input type="number" id="cfgPortLLM" value="8080">
+          </div>
+          <div class="form-group">
+            <label for="cfgBaseDir">TARGET_BASE</label>
+            <input type="text" id="cfgBaseDir" value="/opt/cerberus_asist">
+          </div>
+          <button class="btn btn-primary" onclick="saveConfig()">💾 Simpan Config</button>
+        </div>
+        <div class="card">
+          <h2>📄 File Config</h2>
+          <div class="stat"><span class="stat-label">.env</span><span class="stat-value" id="cfg-env">—</span></div>
+          <div class="stat"><span class="stat-label">models.json</span><span class="stat-value" id="cfg-models">—</span></div>
+          <div class="stat"><span class="stat-label">.env.example</span><span class="stat-value" id="cfg-env-example">—</span></div>
+          <div style="margin-top:12px;">
+            <button class="btn" onclick="loadEnvFile()">📂 Load .env</button>
+            <button class="btn btn-danger" onclick="resetConfig()">🔄 Reset Config</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ SERVER MONITORING ═══ -->
+    <section class="tab-content" id="tab-monitoring">
+      <div class="grid-2">
+        <div class="card">
+          <h2>🖥️ Server Health</h2>
+          <div class="stat"><span class="stat-label">CPU</span><span class="stat-value" id="mon-cpu">—</span></div>
+          <div class="stat"><span class="stat-label">Memory</span><span class="stat-value" id="mon-mem">—</span></div>
+          <div class="stat"><span class="stat-label">Disk</span><span class="stat-value" id="mon-disk">—</span></div>
+          <div class="stat"><span class="stat-label">Uptime</span><span class="stat-value cyan" id="mon-uptime">—</span></div>
+          <div class="stat"><span class="stat-label">Temperature</span><span class="stat-value" id="mon-temp">—</span></div>
+          <div style="margin-top:12px;">
+            <button class="btn btn-primary btn-sm" onclick="refreshServerHealth()">🔄 Refresh</button>
+            <button class="btn btn-sm" onclick="runHealthCheck()">⚡ Real-time Check</button>
+          </div>
+        </div>
+        <div class="card">
+          <h2>📊 Resource Usage</h2>
+          <div class="progress-bar" style="margin-top:4px;"><div class="progress-fill" id="mon-cpu-bar" style="width:0%"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--text-dim);"><span>CPU</span><span id="mon-cpu-pct">0%</span></div>
+          <div class="progress-bar" style="margin-top:8px;"><div class="progress-fill" id="mon-mem-bar" style="width:0%"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--text-dim);"><span>RAM</span><span id="mon-mem-pct">0%</span></div>
+          <div class="progress-bar" style="margin-top:8px;"><div class="progress-fill" id="mon-disk-bar" style="width:0%"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--text-dim);"><span>DISK</span><span id="mon-disk-pct">0%</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>🔄 Service Details</h2>
+        <div id="mon-service-details"></div>
+      </div>
+      <div class="card">
+        <h2>📡 Network Interfaces</h2>
+        <div id="mon-network"></div>
+      </div>
+      <div class="card">
+        <h2>⚙️ Top Processes</h2>
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <button class="btn btn-sm btn-primary" onclick="loadTopProcesses('cpu')">By CPU</button>
+          <button class="btn btn-sm" onclick="loadTopProcesses('mem')">By Memory</button>
+        </div>
+        <div class="log-box" id="mon-processes" style="max-height:200px;"><span class="dim">Klik tombol untuk melihat proses...</span></div>
+      </div>
+    </section>
+
+    <!-- ═══ BACKUP ═══ -->
+    <section class="tab-content" id="tab-backup">
+      <div class="grid-2">
+        <div class="card">
+          <h2>💾 Backup Management</h2>
+          <div class="btn-group" style="margin-bottom:12px;">
+            <button class="btn btn-primary" onclick="createBackup('config')">📦 Backup Config</button>
+            <button class="btn" onclick="createBackup('data')">📦 Backup Data</button>
+            <button class="btn" onclick="createBackup('full')">📦 Backup Full</button>
+          </div>
+          <div class="btn-group" style="margin-bottom:12px;">
+            <button class="btn btn-sm" onclick="listBackups()">📋 List Backups</button>
+            <button class="btn btn-sm" onclick="checkBackupStatus()">📊 Status</button>
+          </div>
+          <div class="log-box" id="backup-log" style="max-height:300px;"><span class="dim">⏳ Klik tombol untuk memulai...</span></div>
+        </div>
+        <div class="card">
+          <h2>🔄 Remote Backup</h2>
+          <div class="form-group">
+            <label for="bkRemoteUser">SSH User</label>
+            <input type="text" id="bkRemoteUser" placeholder="admin">
+          </div>
+          <div class="form-group">
+            <label for="bkRemoteHost">Remote Host</label>
+            <input type="text" id="bkRemoteHost" placeholder="192.168.1.100">
+          </div>
+          <div class="form-group">
+            <label for="bkRemotePort">SSH Port</label>
+            <input type="number" id="bkRemotePort" value="22">
+          </div>
+          <div class="form-group">
+            <label for="bkRemotePath">Remote Path</label>
+            <input type="text" id="bkRemotePath" value="/var/backups/cerberus_asist">
+          </div>
+          <button class="btn btn-success" onclick="remoteBackup()">🌐 Backup to Remote</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ SSH KEYS ═══ -->
+    <section class="tab-content" id="tab-sshkeys">
+      <div class="grid-2">
+        <div class="card">
+          <h2>🔑 SSH Key Management</h2>
+          <div class="btn-group" style="margin-bottom:12px;">
+            <button class="btn btn-primary" onclick="generateSshKeys()">🆕 Generate Keys</button>
+            <button class="btn" onclick="checkSshStatus()">📋 SSH Status</button>
+          </div>
+          <div class="log-box" id="ssh-log" style="max-height:300px;"><span class="dim">⏳ Klik tombol untuk melihat status...</span></div>
+        </div>
+        <div class="card">
+          <h2>👤 Install SSH Key</h2>
+          <div class="form-group">
+            <label for="sshUser">Username</label>
+            <input type="text" id="sshUser" value="admin">
+          </div>
+          <div class="form-group">
+            <label for="sshKeyName">Key Name</label>
+            <input type="text" id="sshKeyName" value="cerberus_controller">
+          </div>
+          <button class="btn btn-success" onclick="installSshKey()">🔐 Install Key for User</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>📖 Informasi SSH</h2>
+        <div style="font-size:0.85rem;color:var(--text-dim);line-height:1.7;">
+          <p>SSH keys terletak di: <code>/opt/cerberus_asist/ssh-keys/</code></p>
+          <p>Untuk remote access dari server lain:</p>
+          <p>1. Generate keys di dashboard ini</p>
+          <p>2. Copy public key ke remote server: <code>ssh-copy-id user@remote-server</code></p>
+          <p>3. Atau gunakan SSH tunnel: <code>ssh -L 7860:localhost:7860 user@remote-server</code></p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+// ─── State ───
+const API_BASE = window.location.origin;
+let pollInterval = null;
+const STAGE_NAMES = [
+  'Prerequisites Check',
+  'Syncing Configuration',
+  'System User & Permissions',
+  'Python Environment',
+  'Hardware Scan & Model Selection',
+  'Build llama.cpp',
+  'Download Model',
+  'Copy Source Payload',
+  'Install Systemd Services',
+  'USB Auto-Deploy Rules',
+  'Firewall Rules'
+];
+
+// ─── Toast ───
+function showToast(msg, type = 'info') {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+// ─── Tab Navigation ───
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    item.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + item.dataset.tab).classList.add('active');
+  });
+});
+
+// Stage tabs
+document.querySelectorAll('#stageTabs .tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('#stageTabs .tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const target = document.getElementById('tab-' + tab.dataset.tabContent);
+    document.querySelectorAll('#tab-stages .tab-content').forEach(t => {
+      t.style.display = 'none';
+    });
+    if (target) target.style.display = 'block';
+  });
+});
+
+// ─── API Helpers ───
+async function apiGet(endpoint) {
+  try {
+    const r = await fetch(`${API_BASE}${endpoint}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+async function apiPost(endpoint, body = {}) {
+  try {
+    const r = await fetch(`${API_BASE}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+// ─── Health Check ───
+async function checkHealth() {
+  const data = await apiGet('/api/health');
+  if (data.error) {
+    showToast('Health check gagal: ' + data.error, 'error');
+    return;
+  }
+  document.getElementById('ov-pairing').textContent = data.pairing ? '✅ Terhubung' : '❌ Tidak';
+  document.getElementById('ov-pairing').className = 'stat-value ' + (data.pairing ? 'green' : 'red');
+  document.getElementById('ov-heartbeat').textContent = data.heartbeat ? '✅ Ada' : '❌ Tidak';
+  document.getElementById('ov-heartbeat').className = 'stat-value ' + (data.heartbeat ? 'green' : 'red');
+  document.getElementById('ov-tokens').textContent = data.signed_tokens ? '✅ Enabled' : '❌ Disabled';
+  document.getElementById('ov-tokens').className = 'stat-value ' + (data.signed_tokens ? 'green' : 'red');
+  document.getElementById('ov-installed').textContent = data.installed ? '✅ Terinstal' : '⏳ Belum';
+  document.getElementById('ov-installed').className = 'stat-value ' + (data.installed ? 'green' : 'yellow');
+  showToast('Health check selesai', 'success');
+}
+
+// ─── System Status ───
+async function refreshStatus() {
+  const data = await apiGet('/api/status');
+  if (data.error) {
+    document.getElementById('statusBadge').textContent = '❌ Offline';
+    document.getElementById('statusBadge').className = 'header-badge';
+    return;
+  }
+  const svc = data.services || {};
+  const svcNames = ['cerberus_asist-llama', 'cerberus_asist-bot', 'cerberus_asist-dashboard'];
+  let allActive = true;
+  let html = '';
+  svcNames.forEach(name => {
+    const status = svc[name] || 'inactive';
+    const cls = status === 'active' ? 'green' : status === 'inactive' ? 'text-dim' : 'red';
+    const icon = status === 'active' ? '✅' : status === 'inactive' ? '⬜' : '❌';
+    if (status !== 'active') allActive = false;
+    html += `<div class="stat">
+      <span class="stat-label">${icon} ${name}</span>
+      <span class="stat-value ${cls}">${status}</span>
+    </div>`;
+  });
+  document.getElementById('serviceList').innerHTML = html;
+  document.getElementById('ov-services').textContent = allActive ? '✅ All Active' : '⚠️ Some Down';
+  document.getElementById('ov-services').className = 'stat-value ' + (allActive ? 'green' : 'yellow');
+  document.getElementById('statusBadge').textContent = allActive ? '✅ Online' : '⚠️ Degraded';
+  document.getElementById('statusBadge').className = 'header-badge' + (allActive ? ' online' : '');
+
+  // Pairing badge
+  const health = await apiGet('/api/health');
+  document.getElementById('pairBadge').textContent = health.pairing ? '🔗 Terhubung' : '🔗 Tidak terhubung';
+}
+
+// ─── Stage Progress ───
+async function loadStageProgress() {
+  const data = await apiGet('/api/stages');
+  if (data.error) return;
+  const stages = data.stages || [];
+  
+  // Overall progress
+  const done = stages.filter(s => s.status === 'done').length;
+  const total = stages.length || 10;
+  const pct = Math.round((done / total) * 100);
+  document.getElementById('overallProgress').style.width = pct + '%';
+  document.getElementById('overallProgress').className = 'progress-fill ' + (pct === 100 ? 'green' : pct > 0 ? '' : '');
+  document.getElementById('progressText').textContent = `${done} / ${total} tahap`;
+
+  // Overview stage list
+  let ovHtml = '';
+  stages.forEach((s, i) => {
+    const cls = s.status === 'done' ? 'done' : s.status === 'running' ? 'running' : s.status === 'fail' ? 'fail' : 'pending';
+    const label = s.status === 'done' ? '✅ Selesai' : s.status === 'running' ? '⏳ Berjalan' : s.status === 'fail' ? '❌ Gagal' : '⏸ Pending';
+    ovHtml += `<div class="stage-item">
+      <div class="stage-number ${cls}">${i}</div>
+      <span class="stage-name">${s.name || STAGE_NAMES[i] || 'Stage ' + i}</span>
+      <span class="stage-status ${cls}">${label}</span>
+    </div>`;
+  });
+  document.getElementById('overviewStageList').innerHTML = ovHtml;
+
+  // Manual stage list
+  let manualHtml = '';
+  stages.forEach((s, i) => {
+    const cls = s.status === 'done' ? 'done' : s.status === 'running' ? 'running' : s.status === 'fail' ? 'fail' : 'pending';
+    const label = s.status === 'done' ? '✅ Selesai' : s.status === 'running' ? '⏳ Berjalan' : s.status === 'fail' ? '❌ Gagal' : '⏸ Pending';
+    manualHtml += `<div class="stage-item">
+      <div class="stage-number ${cls}">${i}</div>
+      <span class="stage-name">${s.name || STAGE_NAMES[i] || 'Stage ' + i}</span>
+      <span class="stage-status ${cls}">${label}</span>
+      <button class="btn btn-sm" onclick="runSetupStage(${i})" ${s.status === 'running' ? 'disabled' : ''}>▶ Jalankan</button>
+    </div>`;
+  });
+  document.getElementById('manualStageList').innerHTML = manualHtml;
+
+  // Sidebar dots
+  stages.forEach((s, i) => {
+    const dot = document.getElementById('dot-stages');
+    if (dot) dot.className = 'dot ' + (s.status === 'done' ? 'done' : s.status === 'running' ? 'running' : 'idle');
+  });
+}
+
+// ─── Run Setup ───
+async function runSetup() {
+  const log = document.getElementById('setupLog');
+  log.innerHTML = '<span class="info">⏳ Menjalankan setup lengkap...</span>\n';
+  showToast('Memulai setup lengkap...', 'info');
+  
+  try {
+    const r = await fetch(`${API_BASE}/api/setup/run`, { method: 'POST' });
+    const reader = r.body.getReader();
+    const decoder = new TextDecoder();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const text = decoder.decode(value);
+      log.innerHTML += text;
+      log.scrollTop = log.scrollHeight;
+    }
+  } catch (e) {
+    log.innerHTML += `<span class="error">❌ Error: ${e.message}</span>\n`;
+    showToast('Setup gagal: ' + e.message, 'error');
+  }
+  loadStageProgress();
+  refreshStatus();
+  showToast('Setup selesai', 'success');
+}
+
+// ─── Run Setup Stage ───
+async function runSetupStage(stage) {
+  showToast(`Menjalankan Stage ${stage}...`, 'info');
+  const log = document.getElementById('setupLog');
+  log.innerHTML += `<span class="info">⏳ Stage ${stage}: ${STAGE_NAMES[stage] || ''}...</span>\n`;
+  log.scrollTop = log.scrollHeight;
+  
+  const result = await apiPost('/api/setup/stage/' + stage);
+  if (result.error) {
+    log.innerHTML += `<span class="error">❌ ${result.error}</span>\n`;
+    showToast(`Stage ${stage} gagal: ${result.error}`, 'error');
+  } else {
+    log.innerHTML += `<span class="ok">✅ ${result.message || 'Selesai'}</span>\n`;
+    showToast(`Stage ${stage} selesai`, 'success');
+  }
+  log.scrollTop = log.scrollHeight;
+  loadStageProgress();
+  refreshStatus();
+}
+
+// ─── Service Control ───
+async function installService(action) {
+  showToast(`Menjalankan: ${action}...`, 'info');
+  const result = await apiPost('/api/service/' + action);
+  if (result.error) {
+    showToast(`Gagal ${action}: ${result.error}`, 'error');
+  } else {
+    showToast(`${action} berhasil`, 'success');
+  }
+  setTimeout(refreshStatus, 2000);
+}
+
+// ─── Build & Model ───
+async function runBuildLlama() {
+  showToast('Memulai build llama.cpp...', 'info');
+  document.getElementById('build-status').textContent = '⏳ Building...';
+  document.getElementById('build-status').className = 'stat-value yellow';
+  const result = await apiPost('/api/build/llama');
+  if (result.error) {
+    document.getElementById('build-status').textContent = '❌ Gagal';
+    document.getElementById('build-status').className = 'stat-value red';
+    showToast('Build gagal: ' + result.error, 'error');
+  } else {
+    document.getElementById('build-status').textContent = '✅ Built';
+    document.getElementById('build-status').className = 'stat-value green';
+    document.getElementById('build-llama').textContent = '✅ Terinstal';
+    document.getElementById('build-llama').className = 'stat-value green';
+    showToast('Build llama.cpp berhasil', 'success');
+  }
+}
+
+async function runDownloadModel() {
+  showToast('Memulai download model...', 'info');
+  document.getElementById('model-downloaded').textContent = '⏳ Downloading...';
+  document.getElementById('model-downloaded').className = 'stat-value yellow';
+  const result = await apiPost('/api/model/download');
+  if (result.error) {
+    document.getElementById('model-downloaded').textContent = '❌ Gagal';
+    document.getElementById('model-downloaded').className = 'stat-value red';
+    showToast('Download gagal: ' + result.error, 'error');
+  } else {
+    document.getElementById('model-downloaded').textContent = '✅ Terdownload';
+    document.getElementById('model-downloaded').className = 'stat-value green';
+    showToast('Download model berhasil', 'success');
+  }
+}
+
+async function scanHardware() {
+  showToast('Scanning hardware...', 'info');
+  const result = await apiGet('/api/hardware');
+  if (result.error) {
+    showToast('Scan gagal: ' + result.error, 'error');
+    return;
+  }
+  document.getElementById('spec-ram').textContent = result.ram_gb ? `${result.ram_gb} GB` : '—';
+  document.getElementById('spec-disk').textContent = result.disk_gb ? `${result.disk_gb} GB` : '—';
+  document.getElementById('spec-cpu').textContent = result.cpu_cores ? `${result.cpu_cores} cores` : '—';
+  document.getElementById('model-name').textContent = result.model_name || '—';
+  document.getElementById('model-size').textContent = result.model_size_mb ? `${result.model_size_mb} MB` : '—';
+  document.getElementById('model-downloaded').textContent = result.model_downloaded ? '✅ Ada' : '❌ Belum';
+  document.getElementById('model-downloaded').className = 'stat-value ' + (result.model_downloaded ? 'green' : 'red');
+  showToast('Hardware scan selesai', 'success');
+}
+
+// ─── Logs ───
+async function fetchLog(source) {
+  const display = document.getElementById('logDisplay');
+  display.innerHTML = `<span class="info">⏳ Memuat log ${source}...</span>\n`;
+  const result = await apiGet(`/api/logs/${source}`);
+  if (result.error) {
+    display.innerHTML = `<span class="error">❌ ${result.error}</span>\n`;
+  } else {
+    display.innerHTML = result.log || '<span class="dim">(kosong)</span>';
+  }
+  display.scrollTop = display.scrollHeight;
+}
+
+function clearLog() {
+  document.getElementById('logDisplay').innerHTML = '<span class="dim">🗑 Log dibersihkan</span>';
+}
+
+// ─── USB ───
+async function checkUsbStatus() {
+  const result = await apiGet('/api/usb/status');
+  if (result.error) return;
+  const led = document.getElementById('usbLed');
+  const text = document.getElementById('usbStatusText');
+  if (result.device_connected) {
+    led.className = 'usb-led active';
+    text.textContent = `✅ USB terdeteksi: ${result.device}`;
+  } else {
+    led.className = 'usb-led waiting';
+    text.textContent = '⏳ Colokkan USB yang ditandai...';
+  }
+  document.getElementById('usb-rules').textContent = result.rules_installed ? '✅ Terinstal' : '❌ Belum';
+  document.getElementById('usb-rules').className = 'stat-value ' + (result.rules_installed ? 'green' : 'red');
+  document.getElementById('usb-trigger').textContent = result.trigger_exists ? '✅ Ada' : '❌ Hilang';
+  document.getElementById('usb-trigger').className = 'stat-value ' + (result.trigger_exists ? 'green' : 'red');
+  document.getElementById('usb-marker').textContent = result.marker_found ? '✅ Terdeteksi' : '❌ Tidak ada';
+  document.getElementById('usb-marker').className = 'stat-value ' + (result.marker_found ? 'green' : 'red');
+}
+
+async function installUsbRules() {
+  showToast('Memasang USB rules...', 'info');
+  const result = await apiPost('/api/usb/install-rules');
+  if (result.error) {
+    showToast('Gagal: ' + result.error, 'error');
+  } else {
+    showToast('USB rules terpasang', 'success');
+  }
+  checkUsbStatus();
+}
+
+async function prepareUsbDeploy() {
+  showToast('Menyiapkan USB deploy...', 'info');
+  const result = await apiPost('/api/usb/prepare-deploy');
+  if (result.error) {
+    showToast('Gagal: ' + result.error, 'error');
+  } else {
+    showToast('USB deploy siap: ' + (result.message || ''), 'success');
+  }
+}
+
+function saveUsbConfig() {
+  const config = {
+    allowed_ids: document.getElementById('usbAllowedVID').value,
+    marker: document.getElementById('usbMarker').value,
+    target_dir: document.getElementById('usbTargetDir').value
+  };
+  localStorage.setItem('usbConfig', JSON.stringify(config));
+  showToast('Konfigurasi USB disimpan', 'success');
+}
+
+// ─── Config ───
+async function loadConfigStatus() {
+  const result = await apiGet('/api/config/status');
+  if (result.error) return;
+  document.getElementById('cfg-env').textContent = result.env_exists ? '✅ Ada' : '❌ Hilang';
+  document.getElementById('cfg-env').className = 'stat-value ' + (result.env_exists ? 'green' : 'red');
+  document.getElementById('cfg-models').textContent = result.models_exists ? '✅ Ada' : '❌ Hilang';
+  document.getElementById('cfg-models').className = 'stat-value ' + (result.models_exists ? 'green' : 'red');
+  document.getElementById('cfg-env-example').textContent = result.env_example_exists ? '✅ Ada' : '❌ Hilang';
+  document.getElementById('cfg-env-example').className = 'stat-value ' + (result.env_example_exists ? 'green' : 'red');
+}
+
+async function saveConfig() {
+  const config = {
+    telegram_token: document.getElementById('cfgToken').value,
+    port: parseInt(document.getElementById('cfgPort').value),
+    port_llm: parseInt(document.getElementById('cfgPortLLM').value),
+    target_base: document.getElementById('cfgBaseDir').value
+  };
+  showToast('Menyimpan konfigurasi...', 'info');
+  const result = await apiPost('/api/config/save', config);
+  if (result.error) {
+    showToast('Gagal: ' + result.error, 'error');
+  } else {
+    showToast('Konfigurasi disimpan', 'success');
+  }
+  loadConfigStatus();
+}
+
+async function loadEnvFile() {
+  const result = await apiGet('/api/config/env');
+  if (result.error) {
+    showToast('Gagal load .env: ' + result.error, 'error');
+    return;
+  }
+  if (result.token) document.getElementById('cfgToken').value = result.token;
+  if (result.port) document.getElementById('cfgPort').value = result.port;
+  if (result.port_llm) document.getElementById('cfgPortLLM').value = result.port_llm;
+  if (result.target_base) document.getElementById('cfgBaseDir').value = result.target_base;
+  showToast('File .env dimuat', 'success');
+}
+
+async function resetConfig() {
+  if (!confirm('Reset konfigurasi? Semua perubahan akan hilang.')) return;
+  const result = await apiPost('/api/config/reset');
+  if (result.error) {
+    showToast('Gagal: ' + result.error, 'error');
+  } else {
+    showToast('Config direset', 'success');
+  }
+  loadConfigStatus();
+}
+
+async function enableServices() {
+  showToast('Mengaktifkan semua service...', 'info');
+  const result = await apiPost('/api/service/enable');
+  if (result.error) showToast('Gagal: ' + result.error, 'error');
+  else showToast('Service diaktifkan', 'success');
+}
+
+async function disableServices() {
+  showToast('Menonaktifkan semua service...', 'info');
+  const result = await apiPost('/api/service/disable');
+  if (result.error) showToast('Gagal: ' + result.error, 'error');
+  else showToast('Service dinonaktifkan', 'success');
+}
+
+async function runReset() {
+  if (!confirm('⚠️ Reset proyek akan menghapus semua data generated. Lanjutkan?')) return;
+  showToast('Merestart proyek...', 'info');
+  const result = await apiPost('/api/setup/reset');
+  if (result.error) showToast('Gagal: ' + result.error, 'error');
+  else showToast('Proyek di-reset', 'success');
+  loadStageProgress();
+}
+
+// ════════════════════════════════════════════════════════
+//  SERVER MONITORING
+// ════════════════════════════════════════════════════════
+
+async function refreshServerHealth() {
+  const result = await apiGet('/api/server/health');
+  if (result.error) {
+    document.getElementById('mon-cpu').textContent = '❌ Offline';
+    return;
+  }
+  const cpu = result.cpu || {};
+  const mem = result.memory || {};
+  const disk = result.disk || {};
+  
+  document.getElementById('mon-cpu').textContent = `${cpu.usage_pct || 0}% (${cpu.load_1m || 0} / ${cpu.cores || 0} cores)`;
+  document.getElementById('mon-mem').textContent = `${mem.used_gb || 0}/${mem.total_gb || 0} GB (${mem.pct || 0}%)`;
+  document.getElementById('mon-disk').textContent = `${disk.used_gb || 0}/${disk.total_gb || 0} GB (${disk.pct || 0}%)`;
+  document.getElementById('mon-uptime').textContent = result.uptime || '—';
+  document.getElementById('mon-temp').textContent = result.temperature_c ? `${result.temperature_c}°C` : '—';
+  
+  const cpuPct = cpu.usage_pct || 0;
+  const memPct = mem.pct || 0;
+  const diskPct = disk.pct || 0;
+  
+  setBar('mon-cpu-bar', cpuPct, cpuPct > 80 ? 'red' : cpuPct > 60 ? 'yellow' : '');
+  setBar('mon-mem-bar', memPct, memPct > 80 ? 'red' : memPct > 60 ? 'yellow' : '');
+  setBar('mon-disk-bar', diskPct, diskPct > 85 ? 'red' : diskPct > 60 ? 'yellow' : '');
+  
+  document.getElementById('mon-cpu-pct').textContent = `${cpuPct}%`;
+  document.getElementById('mon-mem-pct').textContent = `${memPct}%`;
+  document.getElementById('mon-disk-pct').textContent = `${diskPct}%`;
+  
+  const services = result.services || {};
+  let svcHtml = '';
+  for (const [name, status] of Object.entries(services)) {
+    const icon = status === 'active' ? '✅' : status === 'inactive' ? '⬜' : '❌';
+    const cls = status === 'active' ? 'green' : status === 'inactive' ? 'text-dim' : 'red';
+    svcHtml += `<div class="stat"><span class="stat-label">${icon} ${name}</span><span class="stat-value ${cls}">${status}</span></div>`;
+  }
+  document.getElementById('mon-service-details').innerHTML = svcHtml || '<span class="dim">No services monitored</span>';
+  loadNetworkInfo();
+}
+
+function setBar(id, pct, color) {
+  const bar = document.getElementById(id);
+  if (!bar) return;
+  bar.style.width = `${Math.min(pct, 100)}%`;
+  bar.className = `progress-fill ${color}`;
+}
+
+async function runHealthCheck() {
+  showToast('Menjalankan real-time health check...', 'info');
+  const result = await apiGet('/api/server/health/current');
+  if (result.error) {
+    showToast('Health check gagal: ' + result.error, 'error');
+    return;
+  }
+  if (result.script_output) {
+    const log = document.getElementById('mon-processes');
+    log.innerHTML = `<span class="info">${result.script_output.replace(/\n/g, '<br>')}</span>`;
+  }
+  refreshServerHealth();
+  showToast('Health check selesai', 'success');
+}
+
+async function loadNetworkInfo() {
+  const result = await apiGet('/api/server/network');
+  if (result.error) return;
+  let html = '';
+  (result.interfaces || []).forEach(iface => {
+    html += `<div class="stat"><span class="stat-label">${iface.name}</span><span class="stat-value">${iface.ip || '—'}</span></div>`;
+  });
+  if (result.default_route) {
+    html += `<div class="stat"><span class="stat-label">Default Route</span><span class="stat-value green">${result.default_route}</span></div>`;
+  }
+  document.getElementById('mon-network').innerHTML = html || '<span class="dim">No network data</span>';
+}
+
+async function loadTopProcesses(sort) {
+  const result = await apiGet('/api/server/processes');
+  if (result.error) {
+    showToast('Gagal memuat proses: ' + result.error, 'error');
+    return;
+  }
+  const list = sort === 'cpu' ? (result.by_cpu || []) : (result.by_memory || []);
+  const log = document.getElementById('mon-processes');
+  let html = `<span class="info">Top 10 processes by ${sort.toUpperCase()}:</span>\n`;
+  list.forEach((p, i) => {
+    html += `${i+1}. ${p.user || '?'} | CPU:${p.cpu_pct || '?'}% MEM:${p.mem_pct || '?'}% ${p.command || ''}\n`;
+  });
+  log.innerHTML = html || '<span class="dim">No data</span>';
+}
+
+// ════════════════════════════════════════════════════════
+//  BACKUP
+// ════════════════════════════════════════════════════════
+
+async function createBackup(type) {
+  showToast(`Membuat backup ${type}...`, 'info');
+  const log = document.getElementById('backup-log');
+  log.innerHTML = `<span class="info">⏳ Membuat backup ${type}...</span>\n`;
+  const result = await apiPost(`/api/backup/create?type=${type}`);
+  if (result.error) {
+    log.innerHTML += `<span class="error">❌ ${result.error}</span>\n`;
+    showToast(`Backup ${type} gagal`, 'error');
+  } else {
+    log.innerHTML += `<span class="ok">${(result.output || '').replace(/\n/g, '<br>')}</span>\n`;
+    showToast(`Backup ${type} selesai`, 'success');
+  }
+}
+
+async function listBackups() {
+  const log = document.getElementById('backup-log');
+  log.innerHTML = `<span class="info">⏳ Memuat daftar backup...</span>\n`;
+  const result = await apiGet('/api/backup/list');
+  if (result.error) {
+    log.innerHTML += `<span class="error">❌ ${result.error}</span>\n`;
+  } else {
+    log.innerHTML += `<span class="ok">${(result.output || '').replace(/\n/g, '<br>')}</span>\n`;
+  }
+}
+
+async function checkBackupStatus() {
+  const log = document.getElementById('backup-log');
+  log.innerHTML = `<span class="info">⏳ Memeriksa status backup...</span>\n`;
+  const result = await apiGet('/api/backup/status');
+  if (result.error) {
+    log.innerHTML += `<span class="error">❌ ${result.error}</span>\n`;
+  } else {
+    log.innerHTML += `<span class="ok">${(result.output || '').replace(/\n/g, '<br>')}</span>\n`;
+  }
+}
+
+async function remoteBackup() {
+  const user = document.getElementById('bkRemoteUser').value;
+  const host = document.getElementById('bkRemoteHost').value;
+  const port = parseInt(document.getElementById('bkRemotePort').value);
+  const path = document.getElementById('bkRemotePath').value;
+  if (!user || !host) {
+    showToast('SSH user dan host harus diisi', 'error');
+    return;
+  }
+  showToast(`Backup to ${user}@${host}...`, 'info');
+  const log = document.getElementById('backup-log');
+  log.innerHTML = `<span class="info">⏳ Backup ke ${user}@${host}:${path}...</span>\n`;
+  const result = await apiPost('/api/backup/remote', {
+    user, host, port, remote_path: path, type: 'config'
+  });
+  if (result.error) {
+    log.innerHTML += `<span class="error">❌ ${result.error}</span>\n`;
+    showToast('Remote backup gagal', 'error');
+  } else {
+    log.innerHTML += `<span class="ok">${(result.output || '').replace(/\n/g, '<br>')}</span>\n`;
+    showToast('Remote backup selesai', 'success');
+  }
+}
+
+// ════════════════════════════════════════════════════════
+//  SSH KEYS
+// ════════════════════════════════════════════════════════
+
+async function checkSshStatus() {
+  const log = document.getElementById('ssh-log');
+  log.innerHTML = `<span class="info">⏳ Memeriksa status SSH...</span>\n`;
+  const result = await apiGet('/api/ssh/status');
+  if (result.error) {
+    log.innerHTML += `<span class="error">❌ ${result.error}</span>\n`;
+  } else {
+    log.innerHTML += `<span class="ok">${(result.output || '').replace(/\n/g, '<br>')}</span>\n`;
+  }
+}
+
+async function generateSshKeys() {
+  showToast('Membuat SSH key pair...', 'info');
+  const log = document.getElementById('ssh-log');
+  log.innerHTML = `<span class="info">⏳ Membuat SSH key pair...</span>\n`;
+  const result = await apiPost('/api/ssh/generate');
+  if (result.error) {
+    log.innerHTML += `<span class="error">❌ ${result.error}</span>\n`;
+    showToast('Generate SSH keys gagal', 'error');
+  } else {
+    log.innerHTML += `<span class="ok">${(result.output || '').replace(/\n/g, '<br>')}</span>\n`;
+    showToast('SSH keys berhasil dibuat', 'success');
+  }
+}
+
+async function installSshKey() {
+  const user = document.getElementById('sshUser').value;
+  const keyName = document.getElementById('sshKeyName').value;
+  showToast(`Memasang SSH key untuk ${user}...`, 'info');
+  const log = document.getElementById('ssh-log');
+  log.innerHTML = `<span class="info">⏳ Memasang SSH key untuk ${user}...</span>\n`;
+  const result = await apiPost('/api/ssh/install-key', { user, key_file: keyName });
+  if (result.error) {
+    log.innerHTML += `<span class="error">❌ ${result.error}</span>\n`;
+    showToast('Install SSH key gagal', 'error');
+  } else {
+    log.innerHTML += `<span class="ok">${(result.output || '').replace(/\n/g, '<br>')}</span>\n`;
+    showToast('SSH key terpasang', 'success');
+  }
+}
+
+// ─── Polling ───
+function startPolling() {
+  refreshStatus();
+  loadStageProgress();
+  checkUsbStatus();
+  loadConfigStatus();
+  checkHealth();
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(() => {
+    refreshStatus();
+    loadStageProgress();
+    checkUsbStatus();
+    if (document.getElementById('tab-monitoring').classList.contains('active')) {
+      refreshServerHealth();
+    }
+  }, 5000);
+}
+
+// ─── Init ───
+document.addEventListener('DOMContentLoaded', () => {
+  // Load saved USB config
+  const saved = localStorage.getItem('usbConfig');
+  if (saved) {
+    const c = JSON.parse(saved);
+    if (c.allowed_ids) document.getElementById('usbAllowedVID').value = c.allowed_ids;
+    if (c.marker) document.getElementById('usbMarker').value = c.marker;
+    if (c.target_dir) document.getElementById('usbTargetDir').value = c.target_dir;
+  }
+  startPolling();
+});
+</script>
+
+</body>
+</html>
