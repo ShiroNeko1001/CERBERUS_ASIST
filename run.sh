@@ -713,6 +713,7 @@ full_setup() {
   install_services
   setup_usb
   setup_firewall
+  setup_backup
 
   echo
   echo "╔══════════════════════════════════════════════════════════════╗"
