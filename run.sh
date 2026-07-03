@@ -18,6 +18,7 @@ SERVICE_USER="cerberus_asist"
 VENV_DIR="${BASE_DIR}/.venv"
 ENV_FILE="${BASE_DIR}/bot/.env"
 MODEL_CATALOG="${SCRIPT_DIR}/config/models.json"
+DEFAULT_LLAMA_API="http://127.0.0.1:8080/v1"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
 # Colors for output
@@ -316,6 +317,7 @@ sync_config() {
     # Ensure critical variables exist
     local missing_vars=()
     grep -q '^LLAMA_API='   "$ENV_FILE" || missing_vars+=("LLAMA_API=http://127.0.0.1:8080/v1")
+    grep -q '^SKIP_LOCAL_LLM=' "$ENV_FILE" || missing_vars+=("SKIP_LOCAL_LLM=false")
     grep -q '^PORT='        "$ENV_FILE" || missing_vars+=("PORT=7860")
     if [[ ${#missing_vars[@]} -gt 0 ]]; then
       for var in "${missing_vars[@]}"; do echo "$var" >> "$ENV_FILE"; done
@@ -336,6 +338,26 @@ sync_config() {
   if ! grep -q '^TELEGRAM_TOKEN=[A-Za-z0-9:_-]\{30,\}' "$ENV_FILE" 2>/dev/null; then
     warn "TELEGRAM_TOKEN not set or invalid in $ENV_FILE"
   fi
+}
+
+load_env_settings() {
+  if [[ -f "$ENV_FILE" ]]; then
+    local file_value
+    file_value="$(grep -m1 '^LLAMA_API=' "$ENV_FILE" 2>/dev/null | cut -d'=' -f2- | tr -d '\r' || true)"
+    if [[ -z "${LLAMA_API:-}" && -n "$file_value" ]]; then
+      LLAMA_API="$file_value"
+    fi
+  fi
+  LLAMA_API="${LLAMA_API:-$DEFAULT_LLAMA_API}"
+  SKIP_LOCAL_LLM="${SKIP_LOCAL_LLM:-false}"
+  SKIP_LOCAL_LLM="${SKIP_LOCAL_LLM,,}"
+}
+
+should_install_local_llama() {
+  if [[ "$SKIP_LOCAL_LLM" =~ ^(1|true|yes)$ ]]; then
+    return 1
+  fi
+  [[ "$LLAMA_API" == "$DEFAULT_LLAMA_API" ]]
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -419,6 +441,10 @@ PY
 # ──────────────────────────────────────────────────────────────────────────────
 build_llama() {
   header "STAGE 5 — Building llama.cpp server"
+  if ! should_install_local_llama; then
+    ok "Skipping local llama service — using external LLAMA_API=${LLAMA_API}"
+    return 0
+  fi
   if command -v llama-server &>/dev/null; then
     ok "llama-server already installed"
     return 0
@@ -486,8 +512,9 @@ install_services() {
   local port_llm="${PORT_LLM:-8080}"
   local port_dash="${PORT:-7860}"
 
-  # ── llama.service (no deps) ──
-  cat > /etc/systemd/system/cerberus_asist-llama.service <<SVC1
+  if should_install_local_llama; then
+    # ── llama.service (no deps) ──
+    cat > /etc/systemd/system/cerberus_asist-llama.service <<SVC1
 [Unit]
 Description=Cerberus Asist llama.cpp inference server
 After=network-online.target
@@ -510,14 +537,22 @@ ReadWritePaths=${BASE_DIR}
 [Install]
 WantedBy=multi-user.target
 SVC1
-  ok "cerberus_asist-llama.service written"
+    ok "cerberus_asist-llama.service written"
 
-  # ── bot.service (depends on llama) ──
+    bot_after="After=network-online.target cerberus_asist-llama.service"
+    bot_wants="Wants=network-online.target cerberus_asist-llama.service"
+  else
+    ok "Skipping local llama service unit; using external LLAMA_API=${LLAMA_API}"
+    bot_after="After=network-online.target"
+    bot_wants="Wants=network-online.target"
+  fi
+
+  # ── bot.service ──
   cat > /etc/systemd/system/cerberus_asist-bot.service <<SVC2
 [Unit]
 Description=Cerberus Asist Telegram bot
-After=network-online.target cerberus_asist-llama.service
-Wants=network-online.target cerberus_asist-llama.service
+${bot_after}
+${bot_wants}
 
 [Service]
 Type=simple
@@ -539,12 +574,12 @@ WantedBy=multi-user.target
 SVC2
   ok "cerberus_asist-bot.service written"
 
-  # ── dashboard.service (depends on llama) ──
+  # ── dashboard.service ──
   cat > /etc/systemd/system/cerberus_asist-dashboard.service <<SVC3
 [Unit]
 Description=Cerberus Asist Flask dashboard
-After=network-online.target cerberus_asist-llama.service
-Wants=network-online.target cerberus_asist-llama.service
+${bot_after}
+${bot_wants}
 
 [Service]
 Type=simple
@@ -566,7 +601,11 @@ SVC3
   ok "cerberus_asist-dashboard.service written"
 
   run systemctl daemon-reload
-  run systemctl enable cerberus_asist-llama cerberus_asist-bot cerberus_asist-dashboard
+  if should_install_local_llama; then
+    run systemctl enable cerberus_asist-llama cerberus_asist-bot cerberus_asist-dashboard
+  else
+    run systemctl enable cerberus_asist-bot cerberus_asist-dashboard
+  fi
   ok "All services enabled (not started — use --start)"
 }
 
@@ -654,10 +693,15 @@ show_server_info() {
 # START / STOP / STATUS helpers
 # ──────────────────────────────────────────────────────────────────────────────
 start_services() {
-  header "Starting services (order: llama → bot → dashboard)"
-  run systemctl start cerberus_asist-llama
-  log "Waiting 5s for llama.cpp to initialize..."
-  sleep 5
+  load_env_settings
+  header "Starting services"
+  if should_install_local_llama; then
+    run systemctl start cerberus_asist-llama
+    log "Waiting 5s for llama.cpp to initialize..."
+    sleep 5
+  else
+    ok "Skipping cerberus_asist-llama start — using external LLAMA_API=${LLAMA_API}"
+  fi
   run systemctl start cerberus_asist-bot
   run systemctl start cerberus_asist-dashboard
   show_status
@@ -672,15 +716,22 @@ stop_services() {
 }
 
 show_status() {
+  load_env_settings
   header "Service Status"
-  for svc in cerberus_asist-llama cerberus_asist-bot cerberus_asist-dashboard; do
+  local services=(cerberus_asist-bot cerberus_asist-dashboard)
+  if should_install_local_llama; then
+    services=(cerberus_asist-llama cerberus_asist-bot cerberus_asist-dashboard)
+  fi
+  for svc in "${services[@]}"; do
     local active="$(systemctl is-active "$svc" 2>/dev/null || echo 'not-found')"
     local enabled="$(systemctl is-enabled "$svc" 2>/dev/null || echo 'not-found')"
     printf "  %-35s active=%-12s enabled=%-12s\n" "$svc" "$active" "$enabled"
   done
   echo
-  if systemctl is-active cerberus_asist-llama &>/dev/null; then
-    ok "LLM API: http://127.0.0.1:${PORT_LLM:-8080}/v1"
+  if should_install_local_llama && systemctl is-active cerberus_asist-llama &>/dev/null; then
+    ok "LLM API: ${LLAMA_API}"
+  elif ! should_install_local_llama; then
+    ok "LLM API: ${LLAMA_API} (external)"
   fi
   if systemctl is-active cerberus_asist-dashboard &>/dev/null; then
     ok "Dashboard: http://0.0.0.0:${PORT_DASH:-7860}"
@@ -704,11 +755,16 @@ full_setup() {
   local stages_start="0"
   check_prereqs
   sync_config
+  load_env_settings
   setup_user
   setup_python
-  select_model
-  build_llama
-  download_model
+  if should_install_local_llama; then
+    select_model
+    build_llama
+    download_model
+  else
+    ok "Using external LLAMA_API=${LLAMA_API}; skipping local llama server and model download"
+  fi
   copy_payload
   install_services
   setup_usb

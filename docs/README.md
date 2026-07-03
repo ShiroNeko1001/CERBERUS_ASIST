@@ -134,6 +134,7 @@ Three systemd services are created:
 | `COMMAND_SECRET` | HMAC signing secret | Auto-generated |
 | `PAIR_TTL_SEC` | Pairing TTL in seconds | 86400 |
 | `LLAMA_API` | LLM API endpoint | `http://127.0.0.1:8080/v1` |
+| `SKIP_LOCAL_LLM` | Skip local llama build and service | `false` |
 | `TARGET_BASE` | Install base directory | `/opt/cerberus_asist` |
 | `WIFI_SSID` | WiFi SSID (for headless) | *(optional)* |
 | `WIFI_PASS` | WiFi password | *(optional)* |
