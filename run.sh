@@ -464,12 +464,14 @@ copy_payload() {
   # Copy dashboard template
   run mkdir -p "${BASE_DIR}/dashboard/templates"
   run install -m 644 "${SCRIPT_DIR}/src/dashboard/templates/index.html" "${BASE_DIR}/dashboard/templates/index.html"
+  run mkdir -p "${BASE_DIR}/scripts/maintenance"
+  run install -m 755 "${SCRIPT_DIR}/scripts/maintenance/"*.sh "${BASE_DIR}/scripts/maintenance/"
   run install -m 755 "${SCRIPT_DIR}/scripts/usb/usb-trigger.sh" "${BASE_DIR}/usb-trigger.sh"
   run install -m 755 "${SCRIPT_DIR}/scripts/usb/prepare-usb-bundle.sh" "${BASE_DIR}/prepare-usb-bundle.sh"
   run install -m 644 "${SCRIPT_DIR}/scripts/usb/99-cerberus-asist-usb.rules" \
     /etc/udev/rules.d/99-cerberus_asist-usb.rules 2>/dev/null || true
   run chown -R "$SERVICE_USER:$SERVICE_USER" \
-    "${BASE_DIR}/bot" "${BASE_DIR}/rag" "${BASE_DIR}/dashboard"
+    "${BASE_DIR}/bot" "${BASE_DIR}/rag" "${BASE_DIR}/dashboard" "${BASE_DIR}/scripts/maintenance"
   ok "Source payload copied"
 }
 
