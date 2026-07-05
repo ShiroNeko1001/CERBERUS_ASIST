@@ -22,6 +22,7 @@ SOURCE = Path(os.getenv("CERBERUS_ASIST_SOURCE", os.path.dirname(os.path.dirname
 TOKEN_ENABLED = bool(os.getenv("COMMAND_SECRET", ""))
 SERVICE_NAMES = ("cerberus_asist-llama", "cerberus_asist-bot", "cerberus_asist-dashboard")
 MONITOR_SERVICE_NAMES = ("cerberus_asist-llama", "cerberus_asist-bot", "cerberus_asist-dashboard", "cerberus_asist-health-monitor", "cerberus_asist-backup")
+SELFHEAL_SERVICE = "cerberus_asist-health-monitor"
 STAGE_NAMES = [
     "Prerequisites Check",
     "Syncing Configuration",
@@ -39,6 +40,7 @@ STAGE_NAMES = [
 # ─── State File ───
 STATE_FILE = STATE / "stage_progress.json"
 SETUP_STATE_FILE = STATE / "setup-state.env"
+SELFHEAL_LOG = BASE / "state" / "selfheal.log"
 
 
 def _load_stages() -> list[dict]:
@@ -84,6 +86,14 @@ def system_status() -> dict[str, str]:
     return result
 
 
+def selfheal_status() -> str:
+    try:
+        r = subprocess.run(["systemctl", "is-active", SELFHEAL_SERVICE], capture_output=True, text=True, check=False)
+        return r.stdout.strip() or "inactive"
+    except OSError:
+        return "unavailable"
+
+
 def _run_script(script: str, args: list[str] | None = None) -> tuple[int, str]:
     """Run a shell script and return (returncode, output)."""
     cmd = ["bash", os.path.join(str(SOURCE), script)]
@@ -126,6 +136,8 @@ def api_health():
 def api_status():
     return jsonify({
         "services": system_status(),
+        "self_heal": selfheal_status(),
+        "self_heal_active": selfheal_status() == "active",
         "uptime": read_state(STATE / "heartbeat.txt"),
     })
 
@@ -133,6 +145,20 @@ def api_status():
 @app.get("/api/stages")
 def api_stages():
     return jsonify({"stages": _load_stages()})
+
+
+@app.get("/api/selfheal/log")
+def api_selfheal_log():
+    entries = []
+    if SELFHEAL_LOG.exists():
+        for line in SELFHEAL_LOG.read_text(encoding="utf-8", errors="replace").splitlines()[-80:]:
+            if line.strip():
+                try:
+                    ts, message = line.split("] ", 1)
+                    entries.append({"timestamp": ts[1:], "message": message})
+                except ValueError:
+                    entries.append({"timestamp": "", "message": line})
+    return jsonify({"entries": entries, "path": str(SELFHEAL_LOG)})
 
 
 # ════════════════════════════════════════════════════════

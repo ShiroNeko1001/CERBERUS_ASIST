@@ -65,6 +65,8 @@
     color: var(--text-dim);
   }
   .header-badge.online { border-color: var(--green); color: var(--green); }
+  .header-badge.selfheal { border-color: var(--cyan); color: var(--cyan); }
+  .header-badge.offline { border-color: var(--red); color: var(--red); }
 
   /* ─── Layout ─── */
   .container {
@@ -610,6 +612,7 @@
           <button class="btn btn-sm" onclick="fetchLog('bot')">🤖 Bot</button>
           <button class="btn btn-sm" onclick="fetchLog('dashboard')">📊 Dashboard</button>
           <button class="btn btn-sm" onclick="fetchLog('usb')">💾 USB</button>
+          <button class="btn btn-sm" onclick="loadSelfHealLog()">🧠 Self-heal</button>
           <button class="btn btn-sm" onclick="clearLog()">🗑 Clear</button>
         </div>
         <div class="log-box" id="logDisplay"><span class="dim">⏳ Pilih sumber log...</span></div>
@@ -923,7 +926,7 @@ async function refreshStatus() {
   const data = await apiGet('/api/status');
   if (data.error) {
     document.getElementById('statusBadge').textContent = '❌ Offline';
-    document.getElementById('statusBadge').className = 'header-badge';
+    document.getElementById('statusBadge').className = 'header-badge offline';
     return;
   }
   const svc = data.services || {};
@@ -943,8 +946,18 @@ async function refreshStatus() {
   document.getElementById('serviceList').innerHTML = html;
   document.getElementById('ov-services').textContent = allActive ? '✅ All Active' : '⚠️ Some Down';
   document.getElementById('ov-services').className = 'stat-value ' + (allActive ? 'green' : 'yellow');
-  document.getElementById('statusBadge').textContent = allActive ? '✅ Online' : '⚠️ Degraded';
-  document.getElementById('statusBadge').className = 'header-badge' + (allActive ? ' online' : '');
+
+  const selfHealActive = data.self_heal_active === true || data.self_heal === 'active';
+  if (selfHealActive) {
+    document.getElementById('statusBadge').textContent = '🛡 Self-heal aktif';
+    document.getElementById('statusBadge').className = 'header-badge selfheal';
+  } else if (allActive) {
+    document.getElementById('statusBadge').textContent = '✅ Online';
+    document.getElementById('statusBadge').className = 'header-badge online';
+  } else {
+    document.getElementById('statusBadge').textContent = '❌ Offline';
+    document.getElementById('statusBadge').className = 'header-badge offline';
+  }
 
   // Pairing badge
   const health = await apiGet('/api/health');
@@ -1118,6 +1131,26 @@ async function fetchLog(source) {
     display.innerHTML = `<span class="error">❌ ${result.error}</span>\n`;
   } else {
     display.innerHTML = result.log || '<span class="dim">(kosong)</span>';
+  }
+  display.scrollTop = display.scrollHeight;
+}
+
+async function loadSelfHealLog() {
+  const display = document.getElementById('logDisplay');
+  display.innerHTML = '<span class="info">⏳ Memuat log self-heal...</span>\n';
+  const result = await apiGet('/api/selfheal/log');
+  if (result.error) {
+    display.innerHTML = `<span class="error">❌ ${result.error}</span>\n`;
+  } else {
+    const entries = result.entries || [];
+    if (!entries.length) {
+      display.innerHTML = '<span class="dim">(belum ada log self-heal)</span>';
+      return;
+    }
+    display.innerHTML = entries.map(entry => {
+      const ts = entry.timestamp ? `<span class="dim">[${entry.timestamp}]</span> ` : '';
+      return `${ts}<span class="info">${entry.message}</span>`;
+    }).join('\n');
   }
   display.scrollTop = display.scrollHeight;
 }

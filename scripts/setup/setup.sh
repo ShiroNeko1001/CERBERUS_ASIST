@@ -30,6 +30,18 @@ RESET_ONLY=0
 log(){ mkdir -p "$(dirname "$LOG_FILE")"; echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
 need_root(){ [[ ${EUID:-$(id -u)} -eq 0 ]] || { echo "sudo/root required"; exit 1; }; }
 run(){ log "+ $*"; "$@"; }
+check_supported_os(){
+  local os_id="$(. /etc/os-release 2>/dev/null && echo "${ID:-}")"
+  local default_target="$(systemctl get-default 2>/dev/null || true)"
+  if [[ "$os_id" != "ubuntu" ]]; then
+    echo "This setup targets Ubuntu only." >&2
+    exit 1
+  fi
+  if [[ "$default_target" != "multi-user.target" ]]; then
+    echo "This setup targets Ubuntu headless/multi-user mode only." >&2
+    exit 1
+  fi
+}
 write_state(){ mkdir -p "$(dirname "$STATE_FILE")"; cat > "$STATE_FILE" <<EOF
 RAM_GB=$RAM_GB
 DISK_GB=$DISK_GB
@@ -41,6 +53,7 @@ MODEL_FILE=$MODEL_FILE
 EOF
 }
 scan(){
+  check_supported_os
   RAM_GB="$(awk '/MemTotal/ {printf "%.1f", $2/1024/1024}' /proc/meminfo)"
   DISK_GB="$(df -BG --output=avail / | tail -1 | tr -d 'G ' )"
   CPU_CORES="$(nproc)"
@@ -117,6 +130,29 @@ install_llama(){
   fi
 }
 install_model(){ MODEL_NAME="$(printf '%s\n' "$MODEL_PICK" | sed -n '1p')"; MODEL_URL="$(printf '%s\n' "$MODEL_PICK" | sed -n '2p')"; MODEL_FILE="$BASE_DIR/models/${MODEL_NAME}.gguf"; if [[ ! -f "$MODEL_FILE" ]]; then log "download model: $MODEL_NAME"; curl -L "$MODEL_URL" -o "$MODEL_FILE"; fi; }
+install_selfheal_service(){
+  cat > /etc/systemd/system/cerberus_asist-selfheal.service <<EOF
+[Unit]
+Description=Cerberus Asist self-heal background service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=${BASE_DIR}
+ExecStart=/usr/bin/env python3 ${SCRIPT_DIR}/scripts/maintenance/autonomous_bootstrap.py --watch
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+Environment=CERBERUS_ASIST_BASE=${BASE_DIR}
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  run systemctl daemon-reload
+  run systemctl enable --now cerberus_asist-selfheal.service
+}
+
 install_services(){
   if should_install_local_llama; then
     cat > /etc/systemd/system/cerberus_asist-llama.service <<EOF
@@ -212,11 +248,18 @@ Type=oneshot
 ExecStart=/opt/cerberus_asist/usb-trigger.sh %I add
 EOF
   run systemctl daemon-reload
+  if ! should_install_local_llama; then
+    run systemctl stop cerberus_asist-llama 2>/dev/null || true
+    run systemctl disable cerberus_asist-llama 2>/dev/null || true
+    rm -f /etc/systemd/system/cerberus_asist-llama.service
+    run systemctl daemon-reload
+  fi
   if should_install_local_llama; then
     run systemctl enable cerberus_asist-llama cerberus_asist-bot cerberus_asist-dashboard
   else
     run systemctl enable cerberus_asist-bot cerberus_asist-dashboard
   fi
+  install_selfheal_service
 }
 project_reset(){
   log "project reset only"

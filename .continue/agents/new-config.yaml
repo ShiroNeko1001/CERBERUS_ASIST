@@ -1,0 +1,44 @@
+# Continue Configuration
+# https://docs.continue.dev/reference
+
+name: Cerberus Config
+version: 1.0.0
+schema: v1
+
+# Tab autocomplete model
+# https://docs.continue.dev/customization/models
+models:
+  - name: gpt-5
+    provider: openai
+    model: gpt-5
+    apiKey: ${{ env.OPENAI_API_KEY }}
+    description: GPT-5 for general purpose coding assistance
+    roles:
+      - autocomplete
+
+  - name: qwen2.5-coder-7b
+    provider: ollama
+    model: qwen2.5-coder:7b
+    description: Local Qwen 2.5 Coder for fast autocomplete and chat
+    apiBase: http://localhost:20128/v1
+    roles:
+      - apply
+      - autocomplete
+      - chat
+      - edit
+
+  - name: claude-sonnet-4
+    provider: anthropic
+    model: claude-sonnet-4-20250514
+    apiKey: ${{ secrets.ANTHROPIC_API_KEY }}
+    description: Claude Sonnet 4 for complex reasoning and tool use
+    roles:
+      - chat
+      - edit
+      - apply
+    defaultCompletionOptions:
+      contextLength: 200000
+      maxTokens: 64000
+    capabilities:
+      - tool_use
+      - image_input

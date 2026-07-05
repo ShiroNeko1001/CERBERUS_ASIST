@@ -3,39 +3,110 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
+import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
-import requests
-from dotenv import load_dotenv
-# pyrefly: ignore [missing-import]
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-# pyrefly: ignore [missing-import]
-from telegram.ext import (
-    Application,
-    CallbackQueryHandler,
-    CommandHandler,
-    ContextTypes,
-    MessageHandler,
-    filters,
-)
+try:
+    import requests
+except ImportError:  # pragma: no cover - environment dependent
+    requests = None
+
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - environment dependent
+    def load_dotenv() -> bool:
+        return False
+
+try:
+    # pyrefly: ignore [missing-import]
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+    # pyrefly: ignore [missing-import]
+    from telegram.ext import (
+        Application,
+        CallbackQueryHandler,
+        CommandHandler,
+        ContextTypes,
+        MessageHandler,
+        filters,
+    )
+except ImportError as exc:  # pragma: no cover - environment dependent
+    InlineKeyboardButton = None
+    InlineKeyboardMarkup = None
+    Update = Any
+    Application = None
+    CallbackQueryHandler = None
+    CommandHandler = None
+    ContextTypes = Any
+    MessageHandler = None
+    filters = None
+    TELEGRAM_IMPORT_ERROR = exc
+else:
+    TELEGRAM_IMPORT_ERROR = None
 
 load_dotenv()
 
-LLAMA_API: Final[str] = os.getenv("LLAMA_API", "http://127.0.0.1:8080/v1")
-TOKEN: Final[str | None] = os.getenv("TELEGRAM_TOKEN")
-BASE_DIR: Final[Path] = Path(os.getenv("CERBERUS_ASIST_BASE", "/opt/cerberus_asist"))
-STATE_DIR: Final[Path] = BASE_DIR / "state"
-HEARTBEAT_FILE: Final[Path] = STATE_DIR / "heartbeat.txt"
-PAIR_FILE: Final[Path] = STATE_DIR / "controller.id"
-PAIR_TS_FILE: Final[Path] = STATE_DIR / "controller.ts"
-AUDIT_FILE: Final[Path] = BASE_DIR / "audit.log"
-PAIR_TTL_SEC: Final[int] = int(os.getenv("PAIR_TTL_SEC", "86400"))
-COMMAND_SECRET: Final[str] = os.getenv("COMMAND_SECRET", "")
 
-if not TOKEN:
-    raise RuntimeError("TELEGRAM_TOKEN missing")
+@dataclass
+class BotSettings:
+    token: str | None
+    llama_api: str
+    base_dir: Path
+    state_dir: Path
+    heartbeat_file: Path
+    pair_file: Path
+    pair_ts_file: Path
+    audit_file: Path
+    pair_ttl_sec: int
+    command_secret: str
+    errors: list[str]
+
+
+def load_settings() -> BotSettings:
+    errors: list[str] = []
+    base_dir = Path(os.getenv("CERBERUS_ASIST_BASE", "/opt/cerberus_asist"))
+    state_dir = base_dir / "state"
+    token = os.getenv("TELEGRAM_TOKEN")
+    llama_api = os.getenv("LLAMA_API", "http://127.0.0.1:8080/v1")
+    if not token:
+        errors.append("TELEGRAM_TOKEN missing")
+    if not llama_api:
+        errors.append("LLAMA_API missing")
+
+    try:
+        pair_ttl_sec = int(os.getenv("PAIR_TTL_SEC", "86400"))
+    except ValueError:
+        pair_ttl_sec = 86400
+        errors.append("PAIR_TTL_SEC invalid, using default 86400")
+
+    return BotSettings(
+        token=token,
+        llama_api=llama_api,
+        base_dir=base_dir,
+        state_dir=state_dir,
+        heartbeat_file=state_dir / "heartbeat.txt",
+        pair_file=state_dir / "controller.id",
+        pair_ts_file=state_dir / "controller.ts",
+        audit_file=base_dir / "audit.log",
+        pair_ttl_sec=pair_ttl_sec,
+        command_secret=os.getenv("COMMAND_SECRET", ""),
+        errors=errors,
+    )
+
+
+SETTINGS: Final[BotSettings] = load_settings()
+LLAMA_API: Final[str] = SETTINGS.llama_api
+TOKEN: Final[str | None] = SETTINGS.token
+BASE_DIR: Final[Path] = SETTINGS.base_dir
+STATE_DIR: Final[Path] = SETTINGS.state_dir
+HEARTBEAT_FILE: Final[Path] = SETTINGS.heartbeat_file
+PAIR_FILE: Final[Path] = SETTINGS.pair_file
+PAIR_TS_FILE: Final[Path] = SETTINGS.pair_ts_file
+AUDIT_FILE: Final[Path] = SETTINGS.audit_file
+PAIR_TTL_SEC: Final[int] = SETTINGS.pair_ttl_sec
+COMMAND_SECRET: Final[str] = SETTINGS.command_secret
 
 STATE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -50,8 +121,8 @@ def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8").strip() if path.exists() else ""
 
 
-def current_chat_id(update: Update) -> str:
-    return str(update.effective_chat.id)
+def current_chat_id(update: Any) -> str:
+    return str(getattr(update.effective_chat, "id", "unknown"))
 
 
 def paired_chat_id() -> str:
@@ -69,14 +140,14 @@ def pair_age_ok() -> bool:
     return age <= PAIR_TTL_SEC
 
 
-def is_paired(update: Update) -> bool:
+def is_paired(update: Any) -> bool:
     return paired_chat_id() == current_chat_id(update) and pair_age_ok()
 
 
-def signed_ok(update: Update, token: str | None) -> bool:
+def signed_ok(update: Any, token: str | None) -> bool:
     if not COMMAND_SECRET:
         return True
-    if not token or not update.message or not update.message.text:
+    if not token or not getattr(update, "message", None) or not getattr(update.message, "text", None):
         return False
     command = update.message.text.split(maxsplit=1)[0]
     payload = f"{current_chat_id(update)}:{command}"
@@ -84,101 +155,99 @@ def signed_ok(update: Update, token: str | None) -> bool:
     return hmac.compare_digest(digest, token)
 
 
-async def reply(update: Update, text: str) -> None:
-    if update.message:
+async def reply(update: Any, text: str) -> None:
+    if getattr(update, "message", None):
         await update.message.reply_text(text)
 
 
-MENU_KEYBOARD = InlineKeyboardMarkup(
-    [
+def build_menu_keyboard() -> Any:
+    if InlineKeyboardMarkup is None or InlineKeyboardButton is None:
+        return None
+    return InlineKeyboardMarkup(
         [
-            InlineKeyboardButton("📦 Instalasi", callback_data="install"),
-            InlineKeyboardButton("⚙️ Konfigurasi", callback_data="config"),
-        ],
-        [
-            InlineKeyboardButton("📋 Status", callback_data="status"),
-            InlineKeyboardButton("❓ Bantuan", callback_data="help"),
-        ],
-    ]
-)
+            [
+                InlineKeyboardButton("📦 Instalasi", callback_data="install"),
+                InlineKeyboardButton("⚙️ Konfigurasi", callback_data="config"),
+            ],
+            [
+                InlineKeyboardButton("📋 Status", callback_data="status"),
+                InlineKeyboardButton("❓ Bantuan", callback_data="help"),
+            ],
+        ]
+    )
 
 
-async def send_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.message:
+MENU_KEYBOARD = build_menu_keyboard()
+
+
+async def send_main_menu(update: Any, context: Any) -> None:
+    if getattr(update, "message", None):
         await update.message.reply_text(
             "Selamat datang di Cerberus Asist! Pilih menu:",
             reply_markup=MENU_KEYBOARD,
         )
-    audit(f"start chat={update.effective_chat.id} user={update.effective_user.id}")
+    audit(f"start chat={current_chat_id(update)} user={getattr(update.effective_user, 'id', 'unknown')}")
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def start(update: Any, context: Any) -> None:
     await send_main_menu(update, context)
 
 
-async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def help_cmd(update: Any, context: Any) -> None:
     await send_main_menu(update, context)
-    audit(f"help chat={update.effective_chat.id}")
+    audit(f"help chat={current_chat_id(update)}")
 
 
-async def pair(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def pair(update: Any, context: Any) -> None:
     token = context.args[0] if context.args else ""
     if not signed_ok(update, token):
         await reply(update, "Token pairing tidak valid.")
-        audit(f"pair denied chat={update.effective_chat.id}")
+        audit(f"pair denied chat={current_chat_id(update)}")
         return
 
     cid = current_chat_id(update)
     PAIR_FILE.write_text(cid, encoding="utf-8")
     PAIR_TS_FILE.write_text(str(time.time()), encoding="utf-8")
     await reply(update, f"Perangkat berhasil dipasangkan: {cid}")
-    audit(f"pair chat={cid} user={update.effective_user.id}")
+    audit(f"pair chat={cid} user={getattr(update.effective_user, 'id', 'unknown')}")
 
 
-async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def status(update: Any, context: Any) -> None:
     if not is_paired(update):
         await send_main_menu(update, context)
-        audit(f"status denied chat={update.effective_chat.id}")
+        audit(f"status denied chat={current_chat_id(update)}")
         return
 
     await reply(update, f"✅ Status OK.\n🎯 Target API: {LLAMA_API}")
-    audit(f"status ok chat={update.effective_chat.id}")
+    audit(f"status ok chat={current_chat_id(update)}")
 
 
-async def heartbeat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def heartbeat(update: Any, context: Any) -> None:
     if not is_paired(update):
         await reply(update, "Perangkat belum dipasangkan.")
-        audit(f"heartbeat denied chat={update.effective_chat.id}")
+        audit(f"heartbeat denied chat={current_chat_id(update)}")
         return
 
     token = context.args[0] if context.args else ""
     if not signed_ok(update, token):
         await reply(update, "Token heartbeat tidak valid.")
-        audit(f"heartbeat denied token chat={update.effective_chat.id}")
+        audit(f"heartbeat denied token chat={current_chat_id(update)}")
         return
 
     HEARTBEAT_FILE.write_text(current_chat_id(update), encoding="utf-8")
     PAIR_TS_FILE.write_text(str(time.time()), encoding="utf-8")
     await reply(update, "Heartbeat tersimpan.")
-    audit(f"heartbeat ok chat={update.effective_chat.id}")
+    audit(f"heartbeat ok chat={current_chat_id(update)}")
 
 
-async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not is_paired(update):
-        await reply(update, "Perangkat belum dipasangkan.")
-        audit(f"chat denied chat={update.effective_chat.id}")
-        return
+def safe_chat_completion(message: str, settings: BotSettings | None = None) -> tuple[bool, str]:
+    if requests is None:
+        return False, "Layanan model belum siap atau dependensi tidak tersedia."
 
-    if not update.message or not update.message.text:
-        await reply(update, "Pesan tidak valid.")
-        return
-
-    message = update.message.text.strip()
-    audit(f"chat ok chat={update.effective_chat.id} msg={message[:120]}")
-
+    target_api = settings.llama_api if settings else LLAMA_API
     try:
         response = requests.post(
-            f"{LLAMA_API}/chat/completions",
+            f"{target_api}/chat/completions",
             json={
                 "model": "local",
                 "messages": [
@@ -187,19 +256,41 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 ],
                 "temperature": 0.2,
             },
-            timeout=120,
+            timeout=60,
         )
         response.raise_for_status()
-        text = response.json()["choices"][0]["message"]["content"]
-    except (requests.RequestException, KeyError, IndexError, ValueError) as exc:
-        audit(f"chat error chat={update.effective_chat.id} err={type(exc).__name__}")
-        await reply(update, "Layanan model belum siap atau respons tidak valid.")
+        payload = response.json()
+        content = payload.get("choices", [{}])[0].get("message", {}).get("content", "")
+        if not content:
+            return False, "Layanan model mengembalikan respons kosong."
+        return True, content
+    except Exception as exc:  # pragma: no cover - network dependent
+        audit(f"chat error err={type(exc).__name__}")
+        return False, "Layanan model belum siap atau respons tidak valid."
+
+
+async def chat(update: Any, context: Any) -> None:
+    if not is_paired(update):
+        await reply(update, "Perangkat belum dipasangkan.")
+        audit(f"chat denied chat={current_chat_id(update)}")
+        return
+
+    if not getattr(update, "message", None) or not getattr(update.message, "text", None):
+        await reply(update, "Pesan tidak valid.")
+        return
+
+    message = update.message.text.strip()
+    audit(f"chat ok chat={current_chat_id(update)} msg={message[:120]}")
+
+    ok, text = safe_chat_completion(message)
+    if not ok:
+        await reply(update, text)
         return
 
     await reply(update, text[:4096])
 
 
-async def install_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def install_menu(update: Any, context: Any) -> None:
     keyboard = InlineKeyboardMarkup(
         [
             [
@@ -213,16 +304,16 @@ async def install_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             [InlineKeyboardButton("◀️ Kembali", callback_data="back_main")],
         ]
     )
-    if update.message:
+    if getattr(update, "message", None):
         await update.message.reply_text(
             "📦 Pilih komponen yang ingin diinstal:",
             reply_markup=keyboard,
         )
-    audit(f"install_menu chat={update.effective_chat.id}")
+    audit(f"install_menu chat={current_chat_id(update)}")
 
 
-async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
+async def button_callback(update: Any, context: Any) -> None:
+    query = getattr(update, "callback_query", None)
     if not query:
         return
 
@@ -247,14 +338,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             text="📦 Pilih komponen yang ingin diinstal:", reply_markup=keyboard
         )
     elif data == "config":
-        await query.edit_message_text(
-            text="⚙️ Fitur konfigurasi akan segera tersedia."
-        )
+        await query.edit_message_text(text="⚙️ Fitur konfigurasi akan segera tersedia.")
     elif data == "status":
         if is_paired(update):
-            await query.edit_message_text(
-                text=f"✅ Status OK.\n🎯 Target API: {LLAMA_API}"
-            )
+            await query.edit_message_text(text=f"✅ Status OK.\n🎯 Target API: {LLAMA_API}")
         else:
             await query.edit_message_text(text="❌ Perangkat belum dipasangkan.")
     elif data == "help":
@@ -301,14 +388,32 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                  "4. Buka http://localhost:8000"
         )
 
-    audit(f"button callback={data} chat={update.effective_chat.id}")
+    audit(f"button callback={data} chat={current_chat_id(update)}")
 
 
-async def install(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def install(update: Any, context: Any) -> None:
     await install_menu(update, context)
 
 
-def main() -> None:
+def main() -> int:
+    if SETTINGS.errors and not TOKEN:
+        print("Bot tidak bisa dimulai karena konfigurasi belum lengkap:", file=sys.stderr)
+        for error in SETTINGS.errors:
+            print(f"- {error}", file=sys.stderr)
+        return 1
+
+    if TELEGRAM_IMPORT_ERROR is not None:
+        print(
+            f"Dependensi telegram belum tersedia: {TELEGRAM_IMPORT_ERROR}\n"
+            "Install dengan: pip install -r src/bot/requirements.txt",
+            file=sys.stderr,
+        )
+        return 1
+
+    if requests is None:
+        print("Dependensi requests belum tersedia.", file=sys.stderr)
+        return 1
+
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_cmd))
@@ -318,8 +423,13 @@ def main() -> None:
     app.add_handler(CommandHandler("install", install))
     app.add_handler(CallbackQueryHandler(button_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat))
-    app.run_polling()
+    try:
+        app.run_polling()
+    except Exception as exc:  # pragma: no cover - runtime dependent
+        print(f"Bot gagal berjalan: {exc}", file=sys.stderr)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

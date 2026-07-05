@@ -326,6 +326,16 @@ check_dashboard_endpoint() {
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
+# AUTONOMOUS BOOTSTRAP HOOK
+# ──────────────────────────────────────────────────────────────────────────────
+run_autonomous_bootstrap() {
+    local py_script="${PROJECT_DIR}/scripts/maintenance/autonomous_bootstrap.py"
+    if [[ -f "$py_script" ]]; then
+        python3 "$py_script" || true
+    fi
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
 # FULL HEALTH CHECK
 # ──────────────────────────────────────────────────────────────────────────────
 full_check() {
@@ -353,6 +363,9 @@ full_check() {
         warn "Some services are down — initiating auto-recovery..."
         auto_recovery
     fi
+
+    # Run autonomous bootstrap for network and self-healing fallback
+    run_autonomous_bootstrap
     
     # Display summary
     if [[ -f "$HEALTH_FILE" ]]; then

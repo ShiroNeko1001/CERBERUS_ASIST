@@ -34,12 +34,13 @@ fi
 
 # Stop services
 log "Menghentikan services..."
-systemctl stop cerberus_asist-dashboard cerberus_asist-bot cerberus_asist-llama 2>/dev/null || true
-systemctl disable cerberus_asist-dashboard cerberus_asist-bot cerberus_asist-llama 2>/dev/null || true
+systemctl stop cerberus_asist-dashboard cerberus_asist-bot cerberus_asist-llama cerberus_asist-selfheal 2>/dev/null || true
+systemctl disable cerberus_asist-dashboard cerberus_asist-bot cerberus_asist-llama cerberus_asist-selfheal 2>/dev/null || true
 
 # Remove systemd services
 log "Menghapus systemd services..."
 rm -f /etc/systemd/system/cerberus_asist-*.service
+rm -f /etc/systemd/system/cerberus_asist-selfheal.service
 systemctl daemon-reload
 
 # Stop tailscale if running

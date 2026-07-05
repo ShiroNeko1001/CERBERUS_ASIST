@@ -601,6 +601,12 @@ SVC3
   ok "cerberus_asist-dashboard.service written"
 
   run systemctl daemon-reload
+  if ! should_install_local_llama; then
+    run systemctl stop cerberus_asist-llama 2>/dev/null || true
+    run systemctl disable cerberus_asist-llama 2>/dev/null || true
+    rm -f /etc/systemd/system/cerberus_asist-llama.service
+    run systemctl daemon-reload
+  fi
   if should_install_local_llama; then
     run systemctl enable cerberus_asist-llama cerberus_asist-bot cerberus_asist-dashboard
   else
