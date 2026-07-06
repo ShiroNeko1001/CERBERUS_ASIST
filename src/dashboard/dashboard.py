@@ -62,6 +62,13 @@ def _set_stage(index: int, status: str):
         _save_stages(stages)
 
 
+def _set_all_stages(status: str):
+    stages = _load_stages()
+    for index in range(len(stages)):
+        stages[index]["status"] = status
+    _save_stages(stages)
+
+
 # ─── Helpers ───
 def read_state(path: Path) -> str:
     return path.read_text().strip() if path.exists() else "none"
@@ -114,7 +121,7 @@ def _run_script(script: str, args: list[str] | None = None) -> tuple[int, str]:
 
 @app.get("/")
 def index():
-    return send_from_directory(os.path.join(str(SOURCE), "src/dashboard/templates"), "index.html")
+    return send_from_directory(os.path.join(str(BASE), "dashboard/templates"), "index.html")
 
 
 # ════════════════════════════════════════════════════════
@@ -171,18 +178,19 @@ def api_setup_run():
 
     def generate():
         yield "⏳ Memulai setup lengkap...\n\n"
+        _set_all_stages("pending")
         stages = _load_stages()
         for i in range(len(stages)):
             _set_stage(i, "running")
             yield f"▶ Stage {i}: {STAGE_NAMES[i]}...\n"
-            rc, out = _run_script("run.sh", ["--setup"] if i == 0 else [])
-            if rc == 0:
-                _set_stage(i, "done")
-                yield f"  ✅ Stage {i} selesai\n\n"
-            else:
-                _set_stage(i, "fail")
-                yield f"  ❌ Stage {i} gagal (rc={rc})\n{out}\n\n"
-                break
+
+        rc, out = _run_script("run.sh", ["--setup"])
+        if rc == 0:
+            _set_all_stages("done")
+            yield "  ✅ Setup selesai tanpa error\n\n"
+        else:
+            _set_all_stages("fail")
+            yield f"  ❌ Setup gagal (rc={rc})\n{out}\n\n"
         yield "\n✅ Setup selesai.\n"
 
     return Response(generate(), mimetype="text/plain")

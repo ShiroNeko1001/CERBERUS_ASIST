@@ -35,3 +35,12 @@ Thumbs.db
 /var/lib/cerberus_asist/
 /var/backups/cerberus_asist/
 
+# SSH config (user-specific)
+%USERPROFILE%/
+
+# Deployment scripts (generated)
+scripts/deploy-remote.ps1
+scripts/ssh-remote.bat
+scripts/ssh-remote.ps1
+docs/SERVER_STATUS.md
+
